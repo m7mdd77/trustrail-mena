@@ -2,6 +2,11 @@
 
 TrustRail MENA is a network-native fraud-decision prototype for the GSMA MENA Ignite Hackathon. A bounded agent selects the minimum justified CAMARA checks through Nokia Network as Code, then a deterministic institution policy recommends `APPROVE`, `VERIFY`, or `HOLD`.
 
+- **Live demo:** https://trustrail-mena.vercel.app
+- **Source repository:** https://github.com/m7mdd77/trustrail-mena
+
+The interface always displays its actual runtime mode. `Nokia simulator connected` means the server is calling Nokia Network as Code; `Fixture preview mode` means no hosted Nokia credential is configured.
+
 ## What the prototype demonstrates
 
 - Real Nokia Network as Code simulator calls for SIM Swap, Device Reachability, Location Verification, and Roaming Status.
