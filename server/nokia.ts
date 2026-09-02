@@ -1,0 +1,159 @@
+import dotenv from "dotenv";
+import { NetworkAsCodeApiClient } from "network-as-code";
+import type {
+  DemoScenario,
+  EvidenceRecord,
+  NetworkTool,
+  RuntimeMode,
+  ToolPlanItem,
+} from "./domain.js";
+
+dotenv.config({ path: ".env.local", quiet: true });
+
+const labels: Record<NetworkTool, string> = {
+  sim_swap: "SIM Swap",
+  reachability: "Device Reachability",
+  location: "Location Verification",
+  roaming: "Roaming Status",
+};
+
+const apiKey = process.env.NOKIA_NAC_API_KEY;
+const runtimeMode: RuntimeMode = apiKey ? "nokia-live" : "nokia-fixtures";
+
+const client = apiKey
+  ? new NetworkAsCodeApiClient({
+      apiKey,
+      rapidapiHost: "network-as-code.nokia.rapidapi.com",
+      timeoutInSeconds: 6,
+      maxRetries: 0,
+    })
+  : null;
+
+export function getRuntimeMode(): RuntimeMode {
+  return runtimeMode;
+}
+
+function fixture(tool: NetworkTool, phoneNumber: string): unknown {
+  if (phoneNumber === "+99999990504") throw new Error("Nokia simulator gateway timeout (504)");
+
+  const suspicious = phoneNumber === "+99999991000";
+  switch (tool) {
+    case "sim_swap":
+      return { swapped: suspicious };
+    case "reachability":
+      return { connectivityStatus: suspicious ? "CONNECTED_SMS" : "CONNECTED_DATA" };
+    case "location":
+      return { verificationResult: suspicious ? "FALSE" : "TRUE", lastLocationTime: new Date().toISOString() };
+    case "roaming":
+      return suspicious ? { roaming: true, countryCode: 424, countryName: ["AE"] } : { roaming: false };
+  }
+}
+
+async function liveCall(tool: NetworkTool, phoneNumber: string, scenario: DemoScenario): Promise<unknown> {
+  if (!client) return fixture(tool, phoneNumber);
+
+  switch (tool) {
+    case "sim_swap":
+      return client.simSwap.check({ phoneNumber, maxAge: 240 });
+    case "reachability":
+      return client.deviceStatus.checkConnectivity({ device: { phoneNumber } });
+    case "location":
+      return client.location.verifyV1({
+        device: { phoneNumber },
+        area: {
+          areaType: "CIRCLE",
+          center: {
+            latitude: scenario.expectedLocation.latitude,
+            longitude: scenario.expectedLocation.longitude,
+          },
+          radius: scenario.expectedLocation.radiusMeters,
+        } as Parameters<typeof client.location.verifyV1>[0]["area"],
+        maxAge: 3_600,
+      });
+    case "roaming":
+      return client.deviceStatus.checkRoaming({ device: { phoneNumber } });
+  }
+}
+
+function safeProviderError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  const status = message.match(/Status code:\s*(\d{3})/i)?.[1];
+
+  if (status === "429") return "Nokia temporarily rate-limited this check. TrustRail treats it as unavailable, never as safe.";
+  if (status === "504") return "Nokia's simulator intentionally timed out. TrustRail treats the missing signal as unavailable.";
+  if (status === "422") return "Nokia rejected the verification context, so TrustRail cannot use this signal.";
+  if (status) return `The network provider returned HTTP ${status}; this signal remains unavailable.`;
+  return "The network check did not return usable evidence.";
+}
+
+function describe(tool: NetworkTool, raw: any): Pick<EvidenceRecord, "result" | "detail"> {
+  switch (tool) {
+    case "sim_swap":
+      return raw.swapped
+        ? { result: "Recent change detected", detail: "The network reports a SIM swap within the configured 240-hour window." }
+        : { result: "No recent change", detail: "The network reports no SIM swap within the configured 240-hour window." };
+    case "reachability": {
+      const status = raw.connectivityStatus ?? raw.connectivity?.join(", ") ?? "UNKNOWN";
+      return {
+        result: String(status).replaceAll("_", " "),
+        detail:
+          status === "CONNECTED_DATA"
+            ? "The device is reachable through mobile data."
+            : status === "CONNECTED_SMS"
+              ? "The device is reachable for SMS but not confirmed on mobile data."
+              : "The device is not currently reachable through the expected channel.",
+      };
+    }
+    case "location": {
+      const result = raw.verificationResult ?? "UNKNOWN";
+      return {
+        result,
+        detail:
+          result === "TRUE"
+            ? "The network confirms the device is inside the expected area."
+            : result === "FALSE"
+              ? "The network reports the device outside the expected area."
+              : "The network could not provide a conclusive area verification.",
+      };
+    }
+    case "roaming":
+      return raw.roaming
+        ? { result: "Roaming", detail: "The device is roaming; this is context and is not treated as fraud by itself." }
+        : { result: "Home network", detail: "The device is not currently roaming." };
+  }
+}
+
+export async function collectEvidence(
+  scenario: DemoScenario,
+  planItem: ToolPlanItem,
+): Promise<EvidenceRecord> {
+  const started = performance.now();
+  const phoneNumber = scenario.toolDeviceOverrides?.[planItem.tool] ?? scenario.phoneNumber;
+
+  try {
+    const raw = await liveCall(planItem.tool, phoneNumber, scenario);
+    const description = describe(planItem.tool, raw);
+    return {
+      tool: planItem.tool,
+      label: labels[planItem.tool],
+      status: "received",
+      source: runtimeMode,
+      reason: planItem.reason,
+      latencyMs: Math.round(performance.now() - started),
+      ...description,
+      raw,
+    };
+  } catch (error) {
+    return {
+      tool: planItem.tool,
+      label: labels[planItem.tool],
+      status: "unavailable",
+      source: runtimeMode,
+      reason: planItem.reason,
+      latencyMs: Math.round(performance.now() - started),
+      result: "Signal unavailable",
+      detail: safeProviderError(error),
+      raw: { unavailable: true },
+    };
+  }
+}
