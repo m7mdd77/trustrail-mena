@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { AgentPlan, DemoScenario, NetworkTool, ToolPlanItem } from "./domain.js";
 
-const allowedTools = ["sim_swap", "reachability", "location", "roaming"] as const;
-const requiredTools = ["sim_swap", "reachability"] as const;
+const allowedTools = ["sim_swap", "device_swap", "location", "roaming"] as const;
+const requiredTools = ["sim_swap", "device_swap"] as const;
 
 const planSchema = z.object({
   summary: z.string().min(10).max(220),
@@ -24,8 +24,8 @@ function boundedPlan(scenario: DemoScenario): AgentPlan {
       reason: "Check for a recent SIM change before relying on possession-based authentication.",
     },
     {
-      tool: "reachability",
-      reason: "Confirm whether the customer device is currently reachable through the mobile network.",
+      tool: "device_swap",
+      reason: "Check whether the subscription recently moved to a different physical device.",
     },
   ];
 
@@ -65,8 +65,8 @@ function enforcePlannerBounds(plan: AgentPlan): AgentPlan {
       reason: "Check for a recent SIM change before relying on possession-based authentication.",
     },
     {
-      tool: "reachability",
-      reason: "Confirm whether the customer device is currently reachable through the mobile network.",
+      tool: "device_swap",
+      reason: "Check whether the subscription recently moved to a different physical device.",
     },
   ];
   const items = [...requiredItems];
@@ -102,7 +102,7 @@ async function llmPlan(scenario: DemoScenario): Promise<AgentPlan | null> {
         {
           role: "system",
           content:
-            "You are TrustRail's bounded fraud-check planner. Select only from sim_swap, reachability, location, roaming. Use the fewest justified tools, at most four. Roaming alone is never evidence of fraud. Return JSON with summary and items[{tool,reason}].",
+            "You are TrustRail's bounded fraud-check planner. Select only from sim_swap, device_swap, location, roaming. SIM swap and device swap are mandatory. Use the fewest additional tools justified by both structured transaction fields and the unstructured context note, at most four total. Roaming alone is never evidence of fraud. Return JSON with summary and items[{tool,reason}].",
         },
         {
           role: "user",

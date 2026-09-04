@@ -6,6 +6,17 @@ import { getScenario, scenarios } from "./scenarios.js";
 
 const decisionRequest = z.object({
   scenarioId: z.enum(["safe-remittance", "account-takeover", "provider-timeout"]),
+  transaction: z.object({
+    amount: z.number().positive().max(1_000_000),
+    currency: z.enum(["BHD", "SAR", "AED"]),
+    journey: z.enum(["remittance", "wallet-cashout", "new-beneficiary"]),
+    destination: z.string().min(2).max(80),
+    newBeneficiary: z.boolean(),
+    accountAgeDays: z.number().int().nonnegative().max(40_000),
+    expectedArea: z.string().min(2).max(100),
+    customerAction: z.string().min(10).max(240),
+    contextNote: z.string().min(10).max(300),
+  }),
 });
 
 const decisionRateLimit = Math.max(1, Number(process.env.DECISION_RATE_LIMIT ?? 12));
@@ -28,7 +39,9 @@ export function createApiApp() {
       ok: true,
       runtimeMode: getRuntimeMode(),
       plannerMode: process.env.AI_API_KEY ? "llm-agent" : "bounded-policy-agent",
-      enabledApis: ["SIM Swap", "Device Reachability", "Location Verification", "Roaming Status"],
+      enabledApis: ["SIM Swap", "Device Swap", "Location Verification", "Roaming Status"],
+      integration:
+        "Wallet backend calls POST /api/decisions with transaction context; TrustRail returns a recommendation and evidence trail.",
     });
   });
 
@@ -72,11 +85,12 @@ export function createApiApp() {
       return;
     }
 
-    const scenario = getScenario(parsed.data.scenarioId);
-    if (!scenario) {
+    const baseScenario = getScenario(parsed.data.scenarioId);
+    if (!baseScenario) {
       response.status(404).json({ error: "Scenario not found." });
       return;
     }
+    const scenario = { ...baseScenario, transaction: parsed.data.transaction };
 
     try {
       response.json(await evaluateScenario(scenario));

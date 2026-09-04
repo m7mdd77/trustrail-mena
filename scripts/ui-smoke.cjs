@@ -4,6 +4,7 @@ const { chromium } = require("playwright");
 
 async function main() {
   const outputDirectory = path.resolve("artifacts");
+  const baseUrl = process.env.BASE_URL ?? "http://127.0.0.1:4173";
   await fs.mkdir(outputDirectory, { recursive: true });
 
   const browser = await chromium.launch({
@@ -14,7 +15,7 @@ async function main() {
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
 
-  await page.goto("http://127.0.0.1:4173", { waitUntil: "networkidle" });
+  await page.goto(baseUrl, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: /Let the network speak/ }).waitFor();
   await page.getByText("Nokia simulator connected").waitFor();
   await page.getByRole("button", { name: /Safe family remittance/ }).waitFor();

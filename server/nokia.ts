@@ -12,7 +12,7 @@ dotenv.config({ path: ".env.local", quiet: true });
 
 const labels: Record<NetworkTool, string> = {
   sim_swap: "SIM Swap",
-  reachability: "Device Reachability",
+  device_swap: "Device Swap",
   location: "Location Verification",
   roaming: "Roaming Status",
 };
@@ -25,7 +25,7 @@ const client = apiKey
       apiKey,
       rapidapiHost: "network-as-code.nokia.rapidapi.com",
       timeoutInSeconds: 6,
-      maxRetries: 0,
+      maxRetries: 1,
     })
   : null;
 
@@ -40,8 +40,8 @@ function fixture(tool: NetworkTool, phoneNumber: string): unknown {
   switch (tool) {
     case "sim_swap":
       return { swapped: suspicious };
-    case "reachability":
-      return { connectivityStatus: suspicious ? "CONNECTED_SMS" : "CONNECTED_DATA" };
+    case "device_swap":
+      return { swapped: suspicious };
     case "location":
       return { verificationResult: suspicious ? "FALSE" : "TRUE", lastLocationTime: new Date().toISOString() };
     case "roaming":
@@ -55,8 +55,8 @@ async function liveCall(tool: NetworkTool, phoneNumber: string, scenario: DemoSc
   switch (tool) {
     case "sim_swap":
       return client.simSwap.check({ phoneNumber, maxAge: 240 });
-    case "reachability":
-      return client.deviceStatus.checkConnectivity({ device: { phoneNumber } });
+    case "device_swap":
+      return client.deviceSwap.check({ phoneNumber, maxAge: 24 });
     case "location":
       return client.location.verifyV1({
         device: { phoneNumber },
@@ -92,18 +92,16 @@ function describe(tool: NetworkTool, raw: any): Pick<EvidenceRecord, "result" | 
       return raw.swapped
         ? { result: "Recent change detected", detail: "The network reports a SIM swap within the configured 240-hour window." }
         : { result: "No recent change", detail: "The network reports no SIM swap within the configured 240-hour window." };
-    case "reachability": {
-      const status = raw.connectivityStatus ?? raw.connectivity?.join(", ") ?? "UNKNOWN";
-      return {
-        result: String(status).replaceAll("_", " "),
-        detail:
-          status === "CONNECTED_DATA"
-            ? "The device is reachable through mobile data."
-            : status === "CONNECTED_SMS"
-              ? "The device is reachable for SMS but not confirmed on mobile data."
-              : "The device is not currently reachable through the expected channel.",
-      };
-    }
+    case "device_swap":
+      return raw.swapped
+        ? {
+            result: "Recent change detected",
+            detail: "The network reports that the subscription moved to a different physical device within 24 hours.",
+          }
+        : {
+            result: "No recent change",
+            detail: "The network reports no physical-device swap within the configured 24-hour window.",
+          };
     case "location": {
       const result = raw.verificationResult ?? "UNKNOWN";
       return {

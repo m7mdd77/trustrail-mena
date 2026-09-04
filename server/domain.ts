@@ -1,5 +1,5 @@
 export type DecisionOutcome = "APPROVE" | "VERIFY" | "HOLD";
-export type NetworkTool = "sim_swap" | "reachability" | "location" | "roaming";
+export type NetworkTool = "sim_swap" | "device_swap" | "location" | "roaming";
 export type EvidenceStatus = "received" | "unavailable";
 export type RuntimeMode = "nokia-live" | "nokia-fixtures";
 
@@ -11,6 +11,8 @@ export interface TransactionContext {
   newBeneficiary: boolean;
   accountAgeDays: number;
   expectedArea: string;
+  customerAction: string;
+  contextNote: string;
 }
 
 export interface DemoScenario {

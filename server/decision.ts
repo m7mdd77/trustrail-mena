@@ -17,13 +17,13 @@ function evidenceByTool(evidence: EvidenceRecord[], tool: EvidenceRecord["tool"]
 
 export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]): PolicyDecision {
   const simSwap = evidenceByTool(evidence, "sim_swap");
-  const reachability = evidenceByTool(evidence, "reachability");
+  const deviceSwap = evidenceByTool(evidence, "device_swap");
   const location = evidenceByTool(evidence, "location");
   const roaming = evidenceByTool(evidence, "roaming");
   const unavailable = evidence.filter((item) => item.status === "unavailable");
   const missingCoreEvidence = [
     ["sim_swap", simSwap],
-    ["reachability", reachability],
+    ["device_swap", deviceSwap],
   ].filter(([, record]) => !record);
   const rules: string[] = [];
   let score = scenario.transaction.amount >= 1_000 ? 12 : 0;
@@ -37,6 +37,10 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
     score += 75;
     rules.push("Recent SIM swap is a hard account-takeover signal.");
   }
+  if ((deviceSwap?.raw as any)?.swapped === true) {
+    score += 55;
+    rules.push("A recent physical-device swap is a strong account-takeover signal.");
+  }
   if ((location?.raw as any)?.verificationResult === "FALSE") {
     score += 35;
     rules.push("Location mismatch requires additional protection.");
@@ -44,14 +48,6 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
   if ((location?.raw as any)?.verificationResult === "UNKNOWN") {
     score += 15;
     rules.push("Unknown location evidence cannot be interpreted as safe.");
-  }
-  const connectivity = (reachability?.raw as any)?.connectivityStatus;
-  if (connectivity === "CONNECTED_SMS") {
-    score += 10;
-    rules.push("SMS-only reachability is weaker than a confirmed mobile-data session.");
-  } else if (connectivity === "NOT_CONNECTED") {
-    score += 20;
-    rules.push("An unreachable device increases uncertainty.");
   }
   if ((roaming?.raw as any)?.roaming === true) {
     score += 8;
@@ -63,9 +59,10 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
   }
 
   const hasRecentSwap = (simSwap?.raw as any)?.swapped === true;
+  const hasRecentDeviceSwap = (deviceSwap?.raw as any)?.swapped === true;
   const hasLocationMismatch = (location?.raw as any)?.verificationResult === "FALSE";
   const hasSecondSeriousSignal =
-    connectivity !== "CONNECTED_DATA" || unavailable.length > 0 || missingCoreEvidence.length > 0;
+    hasRecentDeviceSwap || unavailable.length > 0 || missingCoreEvidence.length > 0;
 
   let outcome: DecisionOutcome;
   if (hasRecentSwap || (hasLocationMismatch && hasSecondSeriousSignal) || score >= 70) {

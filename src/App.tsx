@@ -50,7 +50,7 @@ function App() {
       const response = await fetch("/api/decisions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenarioId: selected }),
+        body: JSON.stringify({ scenarioId: selected, transaction: selectedScenario?.transaction }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail ?? payload.error ?? "Decision failed");
@@ -85,8 +85,8 @@ function App() {
           <p className="eyebrow">Network-native fraud decisions</p>
           <h1>Let the network speak<br />before the money moves.</h1>
           <p className="hero-copy">
-            TrustRail is a bounded AI agent that asks Nokia Network as Code for the minimum useful telecom evidence,
-            then recommends approve, verify, or hold—with every reason visible.
+            A wallet backend sends TrustRail the payment context. Its bounded AI agent asks Nokia Network as Code for
+            the minimum useful telecom evidence, then returns approve, verify, or hold—with every reason visible.
           </p>
           <div className="trust-row">
             <span>CAMARA APIs</span>
@@ -97,7 +97,7 @@ function App() {
         <aside className="hero-card" aria-label="How TrustRail works">
           <p className="card-label">One protected decision</p>
           <ol>
-            <li><b>01</b><span>Read transaction context</span></li>
+            <li><b>01</b><span>Wallet backend sends transaction</span></li>
             <li><b>02</b><span>Select justified network checks</span></li>
             <li><b>03</b><span>Apply institution safety policy</span></li>
           </ol>
@@ -115,7 +115,7 @@ function App() {
             <p className="eyebrow">Interactive prototype</p>
             <h2 id="demo-title">Choose a payment journey</h2>
           </div>
-          <p>Documented Nokia test devices only. No real subscriber data.</p>
+          <p>The customer stays inside the wallet. Its backend calls TrustRail before releasing funds.</p>
         </div>
 
         <div className="scenario-grid">
@@ -140,6 +140,22 @@ function App() {
         </div>
 
         {selectedScenario && (
+          <>
+          <section className="wallet-path" aria-label="Complete wallet payment path">
+            <div className="wallet-story">
+              <p className="card-label">Concrete customer story</p>
+              <h3>{selectedScenario.transaction.customerAction}</h3>
+              <p>{selectedScenario.transaction.contextNote}</p>
+            </div>
+            <ol className="integration-flow">
+              <li><b>1</b><span><strong>Wallet app</strong><small>Customer confirms payment</small></span></li>
+              <li><b>2</b><span><strong>Wallet backend</strong><small>Sends transaction context</small></span></li>
+              <li><b>3</b><span><strong>TrustRail API</strong><small>Orchestrates CAMARA checks</small></span></li>
+              <li className={decision ? `flow-${decision.outcome.toLowerCase()}` : ""}>
+                <b>4</b><span><strong>Wallet action</strong><small>{decision ? outcomeLabels[decision.outcome] : "Await recommendation"}</small></span>
+              </li>
+            </ol>
+          </section>
           <div className="transaction-bar">
             <div>
               <small>Amount</small>
@@ -161,6 +177,7 @@ function App() {
               {loading ? <><span className="spinner" /> Agent checking network…</> : <>Run protected decision <span>→</span></>}
             </button>
           </div>
+          </>
         )}
 
         {error && <div className="error-banner" role="alert">{error}</div>}
@@ -223,13 +240,23 @@ function App() {
         )}
       </section>
 
+      <section className="scale-story shell">
+        <p className="eyebrow">Why an agent—not a lookup table?</p>
+        <h2>Payment situations do not arrive as four tidy fields.</h2>
+        <p>
+          Across MENA wallets and remittance corridors, amounts, beneficiaries, markets, device events, customer notes,
+          consent and API availability combine differently. The agent interprets structured and unstructured context to
+          choose the smallest justified checks; deterministic policy still owns the final recommendation.
+        </p>
+      </section>
+
       <section className="principles shell">
         <div>
           <p className="eyebrow">Designed for trust</p>
           <h2>AI plans. Policy decides.<br />People stay accountable.</h2>
         </div>
         <div className="principle-grid">
-          <article><b>01</b><h3>Minimum checks</h3><p>The agent calls only the signals justified by the payment context.</p></article>
+          <article><b>01</b><h3>Minimum checks</h3><p>SIM and device changes are core; location and roaming are requested only when context justifies them.</p></article>
           <article><b>02</b><h3>Fail safely</h3><p>A timeout never becomes a safe answer. Mixed evidence triggers verification.</p></article>
           <article><b>03</b><h3>Privacy bounded</h3><p>Location is verified as an area match; precise coordinates are not retained.</p></article>
           <article><b>04</b><h3>Institution authority</h3><p>TrustRail recommends. The bank or wallet owns the final payment action.</p></article>
@@ -245,4 +272,3 @@ function App() {
 }
 
 export default App;
-

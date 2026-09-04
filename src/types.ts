@@ -13,11 +13,13 @@ export interface ScenarioSummary {
     newBeneficiary: boolean;
     accountAgeDays: number;
     expectedArea: string;
+    customerAction: string;
+    contextNote: string;
   };
 }
 
 export interface EvidenceRecord {
-  tool: "sim_swap" | "reachability" | "location" | "roaming";
+  tool: "sim_swap" | "device_swap" | "location" | "roaming";
   label: string;
   status: "received" | "unavailable";
   source: "nokia-live" | "nokia-fixtures";
@@ -51,5 +53,5 @@ export interface StatusResponse {
   runtimeMode: "nokia-live" | "nokia-fixtures";
   plannerMode: "bounded-policy-agent" | "llm-agent";
   enabledApis: string[];
+  integration: string;
 }
-

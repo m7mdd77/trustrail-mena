@@ -22,7 +22,7 @@ describe("TrustRail policy guard", () => {
     const scenario = getScenario("safe-remittance")!;
     const result = applyPolicy(scenario, [
       evidence("sim_swap", { swapped: false }),
-      evidence("reachability", { connectivityStatus: "CONNECTED_DATA" }),
+      evidence("device_swap", { swapped: false }),
     ]);
 
     expect(result.outcome).toBe("APPROVE");
@@ -33,7 +33,7 @@ describe("TrustRail policy guard", () => {
     const scenario = getScenario("account-takeover")!;
     const result = applyPolicy(scenario, [
       evidence("sim_swap", { swapped: true }),
-      evidence("reachability", { connectivityStatus: "CONNECTED_SMS" }),
+      evidence("device_swap", { swapped: true }),
       evidence("location", { verificationResult: "FALSE" }),
       evidence("roaming", { roaming: true }),
     ]);
@@ -46,7 +46,7 @@ describe("TrustRail policy guard", () => {
     const scenario = getScenario("provider-timeout")!;
     const result = applyPolicy(scenario, [
       evidence("sim_swap", { swapped: false }),
-      evidence("reachability", { unavailable: true }, "unavailable"),
+      evidence("device_swap", { unavailable: true }, "unavailable"),
       evidence("location", { verificationResult: "TRUE" }),
     ]);
 
@@ -60,7 +60,7 @@ describe("TrustRail policy guard", () => {
     const scenario = getScenario("safe-remittance")!;
     const result = applyPolicy(scenario, [
       evidence("sim_swap", { swapped: false }),
-      evidence("reachability", { connectivityStatus: "CONNECTED_DATA" }),
+      evidence("device_swap", { swapped: false }),
       evidence("roaming", { roaming: true }),
     ]);
 
@@ -70,7 +70,7 @@ describe("TrustRail policy guard", () => {
   it("requires verification when a core network signal is missing", () => {
     const scenario = getScenario("safe-remittance")!;
     const result = applyPolicy(scenario, [
-      evidence("reachability", { connectivityStatus: "CONNECTED_DATA" }),
+      evidence("device_swap", { swapped: false }),
     ]);
 
     expect(result.outcome).toBe("VERIFY");
