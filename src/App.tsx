@@ -22,6 +22,7 @@ function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [selected, setSelected] = useState<ScenarioId>("safe-remittance");
   const [decision, setDecision] = useState<DecisionResult | null>(null);
+  const [contextDraft, setContextDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,6 +43,10 @@ function App() {
     [scenarios, selected],
   );
 
+  useEffect(() => {
+    if (selectedScenario) setContextDraft(selectedScenario.transaction.contextNote);
+  }, [selectedScenario?.id]);
+
   async function runDecision() {
     setLoading(true);
     setError("");
@@ -50,7 +55,12 @@ function App() {
       const response = await fetch("/api/decisions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenarioId: selected, transaction: selectedScenario?.transaction }),
+        body: JSON.stringify({
+          scenarioId: selected,
+          transaction: selectedScenario
+            ? { ...selectedScenario.transaction, contextNote: contextDraft }
+            : undefined,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail ?? payload.error ?? "Decision failed");
@@ -143,9 +153,13 @@ function App() {
           <>
           <section className="wallet-path" aria-label="Complete wallet payment path">
             <div className="wallet-story">
-              <p className="card-label">Concrete customer story</p>
+              <p className="card-label">Wallet confirmation mockup</p>
               <h3>{selectedScenario.transaction.customerAction}</h3>
-              <p>{selectedScenario.transaction.contextNote}</p>
+              <div className="wallet-confirmation">
+                <span>Customer taps</span>
+                <strong>Confirm payment →</strong>
+              </div>
+              <p>Registration consent on file · the customer stays inside the wallet.</p>
             </div>
             <ol className="integration-flow">
               <li><b>1</b><span><strong>Wallet app</strong><small>Customer confirms payment</small></span></li>
@@ -155,6 +169,31 @@ function App() {
                 <b>4</b><span><strong>Wallet action</strong><small>{decision ? outcomeLabels[decision.outcome] : "Await recommendation"}</small></span>
               </li>
             </ol>
+          </section>
+          <section className="context-editor" aria-labelledby="context-title">
+            <div>
+              <p className="card-label">Unstructured wallet context</p>
+              <h3 id="context-title">Change the note; keep the payment fields identical.</h3>
+              <p>The live AI planner extracts context and chooses the smallest justified optional checks.</p>
+            </div>
+            <div>
+              <label htmlFor="context-note">Wallet case note</label>
+              <textarea
+                id="context-note"
+                value={contextDraft}
+                maxLength={300}
+                onChange={(event) => {
+                  setContextDraft(event.target.value);
+                  setDecision(null);
+                }}
+              />
+              {selected === "account-takeover" && (
+                <div className="context-presets">
+                  <button type="button" onClick={() => { setContextDraft("The customer reports travelling abroad; the transfer note says ‘family emergency’; a new device session appeared six hours ago."); setDecision(null); }}>Travel-risk note</button>
+                  <button type="button" onClick={() => { setContextDraft("Beneficiary verified in branch yesterday; scheduled tuition payment; customer is at home in Dubai."); setDecision(null); }}>Verified-context note</button>
+                </div>
+              )}
+            </div>
           </section>
           <div className="transaction-bar">
             <div>
@@ -190,8 +229,26 @@ function App() {
                 <h2>{decision.plan.summary}</h2>
               </div>
               <span className="planner-pill">
-                {decision.plan.planner === "llm-agent" ? "AI planner" : "Bounded agent fallback"}
+                {decision.plan.planner === "llm-agent" ? "Live AI planner" : "Deterministic safety fallback"}
               </span>
+            </div>
+
+            <div className="agent-proof">
+              <div>
+                <span>Context extracted</span>
+                <ul>{decision.plan.contextSignals.map((signal) => <li key={signal}>{signal}</li>)}</ul>
+              </div>
+              <div>
+                <span>Planner</span>
+                <strong>{decision.plan.model ?? "Local bounded fallback"}</strong>
+                <small>{decision.plan.latencyMs.toLocaleString()} ms planning</small>
+                {decision.plan.fallbackReason && <small className="fallback-reason">{decision.plan.fallbackReason}</small>}
+              </div>
+              <div>
+                <span>Decision latency</span>
+                <strong>{decision.totalLatencyMs.toLocaleString()} ms</strong>
+                <small>{decision.budgetMs.toLocaleString()} ms hard budget</small>
+              </div>
             </div>
 
             <div className="evidence-grid">
@@ -240,13 +297,18 @@ function App() {
         )}
       </section>
 
+      <aside className="coverage-note shell">
+        <strong>Deployment boundary</strong>
+        <span>TrustRail assumes the enrolled phone is on a participating network with the selected CAMARA capabilities. If a capability is unavailable or the {status?.decisionBudgetMs?.toLocaleString() ?? "7,000"} ms budget expires, the wallet uses its existing step-up verification.</span>
+      </aside>
+
       <section className="scale-story shell">
         <p className="eyebrow">Why an agent—not a lookup table?</p>
         <h2>Payment situations do not arrive as four tidy fields.</h2>
         <p>
           Across MENA wallets and remittance corridors, amounts, beneficiaries, markets, device events, customer notes,
-          consent and API availability combine differently. The agent interprets structured and unstructured context to
-          choose the smallest justified checks; deterministic policy still owns the final recommendation.
+          consent and API availability combine differently. Edit the wallet note above to prove that similar payment fields
+          can produce a different justified plan; deterministic policy still owns the final recommendation.
         </p>
       </section>
 
@@ -262,6 +324,8 @@ function App() {
           <article><b>04</b><h3>Institution authority</h3><p>TrustRail recommends. The bank or wallet owns the final payment action.</p></article>
         </div>
       </section>
+
+      <p className="residency-note shell">Production deployment target: process regulated data in its country of origin. This public hackathon demo does not claim production data residency.</p>
 
       <footer className="shell">
         <span>TrustRail MENA · Prototype Phase</span>

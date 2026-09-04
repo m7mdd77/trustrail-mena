@@ -1,7 +1,8 @@
 import express from "express";
 import { z } from "zod";
-import { evaluateScenario } from "./decision.js";
+import { evaluateScenario, getDecisionBudgetMs } from "./decision.js";
 import { getRuntimeMode } from "./nokia.js";
+import { getPlannerMode } from "./planner.js";
 import { getScenario, scenarios } from "./scenarios.js";
 
 const decisionRequest = z.object({
@@ -16,6 +17,7 @@ const decisionRequest = z.object({
     expectedArea: z.string().min(2).max(100),
     customerAction: z.string().min(10).max(240),
     contextNote: z.string().min(10).max(300),
+    consentReference: z.string().regex(/^consent_[a-z0-9_-]{8,80}$/i),
   }),
 });
 
@@ -34,14 +36,18 @@ export function createApiApp() {
     next();
   });
 
-  app.get("/api/status", (_request, response) => {
+  app.get("/api/status", (request, response) => {
+    const oidcToken = request.header("x-vercel-oidc-token");
     response.json({
       ok: true,
       runtimeMode: getRuntimeMode(),
-      plannerMode: process.env.AI_API_KEY ? "llm-agent" : "bounded-policy-agent",
+      plannerMode: getPlannerMode(oidcToken),
       enabledApis: ["SIM Swap", "Device Swap", "Location Verification", "Roaming Status"],
       integration:
         "Wallet backend calls POST /api/decisions with transaction context; TrustRail returns a recommendation and evidence trail.",
+      decisionBudgetMs: getDecisionBudgetMs(),
+      supportedNetworkAssumption:
+        "The enrolled phone must use a participating network where the selected CAMARA capabilities are available; otherwise the wallet uses step-up verification.",
     });
   });
 
@@ -93,7 +99,7 @@ export function createApiApp() {
     const scenario = { ...baseScenario, transaction: parsed.data.transaction };
 
     try {
-      response.json(await evaluateScenario(scenario));
+      response.json(await evaluateScenario(scenario, { oidcToken: request.header("x-vercel-oidc-token") }));
     } catch {
       response.status(502).json({
         error: "TrustRail could not complete this decision safely.",

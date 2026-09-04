@@ -7,6 +7,7 @@ import type {
   RuntimeMode,
   ToolPlanItem,
 } from "./domain.js";
+import { executeWithOneTransientRetry, providerStatus } from "./retry.js";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
@@ -24,8 +25,8 @@ const client = apiKey
   ? new NetworkAsCodeApiClient({
       apiKey,
       rapidapiHost: "network-as-code.nokia.rapidapi.com",
-      timeoutInSeconds: 6,
-      maxRetries: 1,
+      timeoutInSeconds: 2,
+      maxRetries: 0,
     })
   : null;
 
@@ -49,14 +50,21 @@ function fixture(tool: NetworkTool, phoneNumber: string): unknown {
   }
 }
 
-async function liveCall(tool: NetworkTool, phoneNumber: string, scenario: DemoScenario): Promise<unknown> {
+async function liveCall(
+  tool: NetworkTool,
+  phoneNumber: string,
+  scenario: DemoScenario,
+  abortSignal: AbortSignal,
+): Promise<unknown> {
   if (!client) return fixture(tool, phoneNumber);
+
+  const requestOptions = { timeoutInSeconds: 2, maxRetries: 0, abortSignal };
 
   switch (tool) {
     case "sim_swap":
-      return client.simSwap.check({ phoneNumber, maxAge: 240 });
+      return client.simSwap.check({ phoneNumber, maxAge: 240 }, requestOptions);
     case "device_swap":
-      return client.deviceSwap.check({ phoneNumber, maxAge: 24 });
+      return client.deviceSwap.check({ phoneNumber, maxAge: 24 }, requestOptions);
     case "location":
       return client.location.verifyV1({
         device: { phoneNumber },
@@ -69,15 +77,19 @@ async function liveCall(tool: NetworkTool, phoneNumber: string, scenario: DemoSc
           radius: scenario.expectedLocation.radiusMeters,
         } as Parameters<typeof client.location.verifyV1>[0]["area"],
         maxAge: 3_600,
-      });
+      }, requestOptions);
     case "roaming":
-      return client.deviceStatus.checkRoaming({ device: { phoneNumber } });
+      return client.deviceStatus.checkRoaming({ device: { phoneNumber } }, requestOptions);
   }
 }
 
 function safeProviderError(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
-  const status = message.match(/Status code:\s*(\d{3})/i)?.[1];
+  const status = providerStatus(error)?.toString();
+
+  if (error instanceof Error && (error.name === "TimeoutError" || /decision budget/i.test(message))) {
+    return "The decision latency budget expired. TrustRail stopped waiting and requires wallet verification.";
+  }
 
   if (status === "429") return "Nokia temporarily rate-limited this check. TrustRail treats it as unavailable, never as safe.";
   if (status === "504") return "Nokia's simulator intentionally timed out. TrustRail treats the missing signal as unavailable.";
@@ -124,12 +136,17 @@ function describe(tool: NetworkTool, raw: any): Pick<EvidenceRecord, "result" | 
 export async function collectEvidence(
   scenario: DemoScenario,
   planItem: ToolPlanItem,
+  abortSignal: AbortSignal,
 ): Promise<EvidenceRecord> {
   const started = performance.now();
   const phoneNumber = scenario.toolDeviceOverrides?.[planItem.tool] ?? scenario.phoneNumber;
 
   try {
-    const raw = await liveCall(planItem.tool, phoneNumber, scenario);
+    const raw = await executeWithOneTransientRetry(
+      (attemptSignal) => liveCall(planItem.tool, phoneNumber, scenario, attemptSignal),
+      abortSignal,
+      2_000,
+    );
     const description = describe(planItem.tool, raw);
     return {
       tool: planItem.tool,

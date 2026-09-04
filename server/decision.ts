@@ -11,6 +11,11 @@ export interface PolicyDecision {
   policyRulesApplied: string[];
 }
 
+export function getDecisionBudgetMs(): number {
+  const configured = Number(process.env.DECISION_BUDGET_MS ?? 7_000);
+  return Number.isFinite(configured) ? Math.max(4_000, Math.min(10_000, configured)) : 7_000;
+}
+
 function evidenceByTool(evidence: EvidenceRecord[], tool: EvidenceRecord["tool"]): EvidenceRecord | undefined {
   return evidence.find((item) => item.tool === tool);
 }
@@ -100,16 +105,22 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
   };
 }
 
-export async function evaluateScenario(scenario: DemoScenario): Promise<DecisionResult> {
-  const plan = await createAgentPlan(scenario);
-  const evidence: EvidenceRecord[] = [];
-  for (const item of plan.items) {
-    evidence.push(await collectEvidence(scenario, item));
-    if (getRuntimeMode() === "nokia-live") {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-  }
+export async function evaluateScenario(
+  scenario: DemoScenario,
+  options: { oidcToken?: string } = {},
+): Promise<DecisionResult> {
+  const started = performance.now();
+  const budgetMs = getDecisionBudgetMs();
+  const controller = new AbortController();
+  const budgetTimer = setTimeout(() => controller.abort(new Error("Decision budget expired")), budgetMs);
+
+  const plan = await createAgentPlan(scenario, controller.signal, options.oidcToken);
+  const evidence = await Promise.all(
+    plan.items.map((item) => collectEvidence(scenario, item, controller.signal)),
+  );
   const policy = applyPolicy(scenario, evidence);
+  clearTimeout(budgetTimer);
+  const totalLatencyMs = Math.round(performance.now() - started);
 
   return {
     id: randomUUID(),
@@ -119,5 +130,8 @@ export async function evaluateScenario(scenario: DemoScenario): Promise<Decision
     evidence,
     ...policy,
     runtimeMode: getRuntimeMode(),
+    totalLatencyMs,
+    budgetMs,
+    budgetExceeded: controller.signal.aborted,
   };
 }

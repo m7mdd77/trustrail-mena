@@ -13,6 +13,7 @@ export interface TransactionContext {
   expectedArea: string;
   customerAction: string;
   contextNote: string;
+  consentReference: string;
 }
 
 export interface DemoScenario {
@@ -38,6 +39,10 @@ export interface AgentPlan {
   summary: string;
   items: ToolPlanItem[];
   planner: "bounded-policy-agent" | "llm-agent";
+  contextSignals: string[];
+  model?: string;
+  latencyMs: number;
+  fallbackReason?: string;
 }
 
 export interface EvidenceRecord {
@@ -64,4 +69,7 @@ export interface DecisionResult {
   explanation: string;
   policyRulesApplied: string[];
   runtimeMode: RuntimeMode;
+  totalLatencyMs: number;
+  budgetMs: number;
+  budgetExceeded: boolean;
 }

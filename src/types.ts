@@ -15,6 +15,7 @@ export interface ScenarioSummary {
     expectedArea: string;
     customerAction: string;
     contextNote: string;
+    consentReference: string;
   };
 }
 
@@ -38,6 +39,10 @@ export interface DecisionResult {
     summary: string;
     items: Array<{ tool: string; reason: string }>;
     planner: "bounded-policy-agent" | "llm-agent";
+    contextSignals: string[];
+    model?: string;
+    latencyMs: number;
+    fallbackReason?: string;
   };
   evidence: EvidenceRecord[];
   outcome: DecisionOutcome;
@@ -46,6 +51,9 @@ export interface DecisionResult {
   explanation: string;
   policyRulesApplied: string[];
   runtimeMode: "nokia-live" | "nokia-fixtures";
+  totalLatencyMs: number;
+  budgetMs: number;
+  budgetExceeded: boolean;
 }
 
 export interface StatusResponse {
@@ -54,4 +62,6 @@ export interface StatusResponse {
   plannerMode: "bounded-policy-agent" | "llm-agent";
   enabledApis: string[];
   integration: string;
+  decisionBudgetMs: number;
+  supportedNetworkAssumption: string;
 }
