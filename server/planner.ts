@@ -5,17 +5,17 @@ const allowedTools = ["sim_swap", "device_swap", "location", "roaming"] as const
 const requiredTools = ["sim_swap", "device_swap"] as const;
 
 const planSchema = z.object({
-  summary: z.string().min(10).max(220),
-  contextSignals: z.array(z.string().min(3).max(100)).min(1).max(4),
+  summary: z.string().min(1),
+  contextSignals: z.array(z.string().min(1)).min(1).max(20),
   items: z
     .array(
       z.object({
-        tool: z.enum(allowedTools),
-        reason: z.string().min(8).max(180),
+        tool: z.string().min(1),
+        reason: z.string().min(1),
       }),
     )
     .min(1)
-    .max(4),
+    .max(20),
 });
 
 function detectContextSignals(scenario: DemoScenario): string[] {
@@ -96,6 +96,26 @@ function getPlannerConfiguration(requestOidcToken?: string) {
   };
 }
 
+function safePlannerFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Unknown planner failure";
+  if (/(?:http 403|valid credit card|unlock your free credits)/i.test(message)) {
+    return "AI Gateway account activation is required; deterministic safety fallback used.";
+  }
+  if (/(?:http 429|rate.?limit)/i.test(message)) {
+    return "AI Gateway temporarily rate-limited the planner; deterministic safety fallback used.";
+  }
+  if (/http 400/i.test(message)) {
+    return "AI Gateway rejected the planner request; deterministic safety fallback used.";
+  }
+  if (error instanceof z.ZodError || error instanceof SyntaxError) {
+    return "AI planner returned an invalid plan; deterministic safety fallback used.";
+  }
+  if (error instanceof Error && error.name === "TimeoutError") {
+    return "AI planner exceeded its 2,500 ms limit.";
+  }
+  return message.slice(0, 280);
+}
+
 export function getPlannerMode(requestOidcToken?: string): "bounded-policy-agent" | "llm-agent" {
   return getPlannerConfiguration(requestOidcToken).apiKey ? "llm-agent" : "bounded-policy-agent";
 }
@@ -121,7 +141,7 @@ async function llmPlan(
       model,
       temperature: 0,
       max_completion_tokens: 400,
-      reasoning_effort: "minimal",
+      reasoning_effort: "none",
       response_format: { type: "json_object" },
       messages: [
         {
@@ -143,9 +163,14 @@ async function llmPlan(
   const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new Error("Planner returned no structured content");
   const parsed = planSchema.parse(JSON.parse(content));
+  const allowedItems: ToolPlanItem[] = parsed.items
+    .filter((item): item is { tool: NetworkTool; reason: string } => isAllowedTool(item.tool))
+    .map((item) => ({ tool: item.tool, reason: item.reason.slice(0, 180) }));
 
   return {
-    ...parsed,
+    summary: parsed.summary.slice(0, 220),
+    contextSignals: parsed.contextSignals.slice(0, 4).map((signal) => signal.slice(0, 100)),
+    items: allowedItems,
     planner: "llm-agent",
     model,
     latencyMs: Math.round(performance.now() - started),
@@ -162,16 +187,9 @@ export async function createAgentPlan(
     return enforcePlannerBounds(plan);
   } catch (error) {
     const fallback = boundedPlan(scenario);
-    const message = error instanceof Error ? error.message : "Unknown planner failure";
-    const activationRequired = /(?:http 403|valid credit card|unlock your free credits)/i.test(message);
     return {
       ...fallback,
-      fallbackReason:
-        activationRequired
-          ? "AI Gateway account activation is required; deterministic safety fallback used."
-          : error instanceof Error && error.name === "TimeoutError"
-          ? "AI planner exceeded its 2,500 ms limit."
-          : message.slice(0, 280),
+      fallbackReason: safePlannerFailure(error),
     };
   }
 }

@@ -30,10 +30,11 @@ async function main() {
   const outcome = page.locator(".outcome-card");
   await outcome.getByRole("heading", { name: "HOLD", exact: true }).waitFor({ timeout: 20_000 });
   await outcome.getByText("Transfer held for review").waitFor();
+  await page.getByText("Live AI planner", { exact: true }).waitFor();
   await page.screenshot({ path: path.join(outputDirectory, "trustrail-fraud-decision.png"), fullPage: true });
 
   if (browserErrors.length > 0) throw new Error(`Browser errors: ${browserErrors.join(" | ")}`);
-  console.log("UI smoke passed: desktop/mobile rendered and the live fraud journey produced HOLD.");
+  console.log("UI smoke passed: desktop/mobile rendered and the live AI fraud journey produced HOLD.");
   await browser.close();
 }
 

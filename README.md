@@ -10,7 +10,7 @@ The interface always displays its actual runtime mode. `Nokia simulator connecte
 ## What the prototype demonstrates
 
 - Real Nokia Network as Code simulator calls for SIM Swap, Device Swap, Location Verification, and Roaming Status.
-- A deployed GPT-5.4 Mini Fast planner path through Vercel AI Gateway OIDC, with a bounded deterministic fallback whenever the gateway is unavailable or not activated.
+- A live GPT-5.4 Mini Fast planner through Vercel AI Gateway OIDC, with a bounded deterministic fallback whenever the gateway is unavailable or rate-limited.
 - Editable unstructured wallet context that can change optional API selection while payment fields stay identical.
 - Deterministic safety rules that the AI cannot override.
 - Parallel network checks, one transient retry, and a visible 7-second end-to-end decision budget.
