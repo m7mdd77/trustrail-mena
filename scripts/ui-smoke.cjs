@@ -19,11 +19,11 @@ async function main() {
   await page.getByRole("heading", { name: /Let the network speak/ }).waitFor();
   await page.getByText(/Nokia simulator configured|Fixture preview mode/).waitFor();
   await page.getByRole("button", { name: /Safe family remittance/ }).waitFor();
-  await page.screenshot({ path: path.join(outputDirectory, "trustrail-desktop.png"), fullPage: true });
+  await page.screenshot({ path: path.join(outputDirectory, "trustrail-desktop.png"), fullPage: true, animations: "disabled" });
 
   await page.setViewportSize({ width: 390, height: 844 });
   if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) throw new Error("Mobile horizontal overflow");
-  await page.screenshot({ path: path.join(outputDirectory, "trustrail-mobile.png"), fullPage: true });
+  await page.screenshot({ path: path.join(outputDirectory, "trustrail-mobile.png"), fullPage: true, animations: "disabled" });
 
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.getByRole("button", { name: /Possible account takeover/ }).click();
@@ -39,7 +39,7 @@ async function main() {
   await outcome.getByRole("heading", { name: "HOLD", exact: true }).waitFor({ timeout: 20_000 });
   await outcome.getByText("Transfer held for review").waitFor();
   await page.getByText(/Live AI planner|Deterministic safety fallback/, { exact: true }).waitFor();
-  await page.screenshot({ path: path.join(outputDirectory, "trustrail-fraud-decision.png"), fullPage: true });
+  await page.screenshot({ path: path.join(outputDirectory, "trustrail-fraud-decision.png"), fullPage: true, animations: "disabled" });
 
   for (const [name, expected] of [[/Safe family remittance/, "APPROVE"], [/Network signal unavailable/, "VERIFY"]]) {
     await page.getByRole("button", { name }).click();
