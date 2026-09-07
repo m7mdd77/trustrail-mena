@@ -104,5 +104,5 @@ Number Verification is intentionally not claimed as an active backend check. Its
 - The AI planner cannot omit the mandatory SIM Swap and Device Swap checks.
 - Roaming alone never blocks a payment.
 - TrustRail recommends; the bank or wallet owns the final action.
-- Public demo requests are rate-limited per client to protect the Nokia API quota.
+- An in-memory per-client limiter provides basic demo throttling; it is not a distributed serverless quota or global spend cap.
 - Independent Nokia checks run in parallel under one enforced decision budget.
