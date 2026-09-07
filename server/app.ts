@@ -37,13 +37,13 @@ export function createApiApp() {
   });
 
   app.get("/api/status", (request, response) => {
-    // This header is platform-provided in Vercel Functions; never trust it on a standalone server.
-    const oidcToken = process.env.VERCEL === "1" ? request.header("x-vercel-oidc-token") : undefined;
     response.json({
       ok: true,
       healthMeaning: "Configuration only; inspect evidence from each evaluation for actual availability.",
       runtimeMode: getRuntimeMode(),
-      plannerMode: getPlannerMode(oidcToken),
+      plannerMode: getPlannerMode(),
+      agentFramework: "LangGraph",
+      modelProvider: "Google Gemini",
       enabledApis: ["SIM Swap", "Device Swap", "Location Verification", "Roaming Status"],
       integration:
         "Wallet backend calls POST /api/decisions with transaction context; TrustRail returns a recommendation and evidence trail.",
@@ -107,7 +107,7 @@ export function createApiApp() {
     const scenario = { ...baseScenario, transaction: { ...baseScenario.transaction, contextNote } };
 
     try {
-      response.json(await evaluateScenario(scenario, { oidcToken: process.env.VERCEL === "1" ? request.header("x-vercel-oidc-token") : undefined }));
+      response.json(await evaluateScenario(scenario));
     } catch {
       response.status(502).json({
         error: "TrustRail could not complete this decision safely.",

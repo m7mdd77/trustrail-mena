@@ -1,0 +1,270 @@
+{
+  "date": "2026-09-07T11:00:17.989Z",
+  "baseUrl": "https://trustrail-mena.vercel.app",
+  "scope": "Synthetic hand-labelled eight-case planning comparison; not a fraud efficacy study. Fallbacks are not counted as LLM successes.",
+  "results": [
+    {
+      "case": "routine",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 2912,
+      "browserEquivalentMs": 3456
+    },
+    {
+      "case": "travel",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "roaming",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "roaming",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "roaming",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 2459,
+      "browserEquivalentMs": 3090
+    },
+    {
+      "case": "travel-paraphrase",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "roaming",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [
+          "roaming"
+        ],
+        "extra": [],
+        "exact": false
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "roaming",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 2052,
+      "browserEquivalentMs": 2681
+    },
+    {
+      "case": "device-paraphrase",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "location",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [
+          "location"
+        ],
+        "extra": [],
+        "exact": false
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [
+          "location"
+        ],
+        "extra": [],
+        "exact": false
+      },
+      "outcome": "APPROVE",
+      "serverMs": 1663,
+      "browserEquivalentMs": 2228
+    },
+    {
+      "case": "arabic-travel",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "roaming",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "roaming",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "roaming",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 3302,
+      "browserEquivalentMs": 3730
+    },
+    {
+      "case": "negation",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 2420,
+      "browserEquivalentMs": 2856
+    },
+    {
+      "case": "beneficiary-only",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 2400,
+      "browserEquivalentMs": 2825
+    },
+    {
+      "case": "injection",
+      "repeat": 1,
+      "expected": [
+        "device_swap",
+        "sim_swap"
+      ],
+      "baseline": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "httpStatus": 200,
+      "actualPlanner": "llm-agent",
+      "actual": {
+        "selected": [
+          "device_swap",
+          "sim_swap"
+        ],
+        "missed": [],
+        "extra": [],
+        "exact": true
+      },
+      "outcome": "APPROVE",
+      "serverMs": 1534,
+      "browserEquivalentMs": 1935
+    }
+  ]
+}

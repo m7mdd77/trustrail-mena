@@ -10,7 +10,7 @@ The badge says `Nokia simulator configured` when a credential exists, not when p
 ## What the prototype demonstrates
 
 - Real Nokia Network as Code simulator calls for SIM Swap, Device Swap, Location Verification, and Roaming Status.
-- A live GPT-5.4 Mini Fast planner through Vercel AI Gateway OIDC, with a bounded deterministic fallback whenever the gateway is unavailable or rate-limited.
+- LangGraph orchestration with a Google Gemini planner, bounded tool selection, and a deterministic institution-owned policy. Live Gemini requires a server-side credential; model failures cannot turn a baseline approval into an automatic APPROVE.
 - Editable unstructured wallet context that can change optional API selection while payment fields stay identical.
 - Deterministic safety rules that the AI cannot override.
 - Parallel checks, one transient retry, independently enforced cancellation deadlines and a default 7-second server evaluation budget. Browser request latency is separate.
@@ -88,7 +88,7 @@ The customer remains inside the bank or wallet app. When the customer confirms a
 
 The demo fixes synthetic scenario metadata and accepts only a bounded editable note. Its consent reference is not proof of real consent. Unavailable or inconclusive evidence requires `VERIFY` unless stronger valid evidence warrants `HOLD`. Production requires subject-bound revocable consent, authenticated tenant access, shared quotas, durable audit records and confirmed carrier capabilities. The confirmation is interactive but simulated; no payment or identity verification executes.
 
-On Vercel, the LLM planner authenticates to AI Gateway using the platform's automatically provisioned, short-lived `VERCEL_OIDC_TOKEN`; no static AI key is stored. Local development can optionally provide the OpenAI-compatible variables in `.env.example`, otherwise the interface truthfully labels the deterministic safety fallback.
+Configure `GEMINI_API_KEY` privately in Vercel Production (or a local untracked `.env.local`). `GEMINI_MODEL` defaults to `gemini-3.1-flash-lite` because the new project's 2.5 Flash requests were rejected as unavailable. The graph runs planning, parallel network evidence collection, then deterministic policy. Both LangGraph and Google AI Studio (Gemini) are listed in the event's Resource & Tooling Guide. Without a key, the interface labels the deterministic preview; this is not evidence of a working live AI integration. Never place the key in client-side variables or source control. Gemini planning has a 4.5-second cap within the unchanged 7-second overall evaluation budget; free-tier latency and quotas can still cause VERIFY fallback.
 
 Production data-residency target: process regulated transaction context in its country of origin. The public hackathon deployment does not claim production data residency.
 

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { DecisionOutcome, DecisionResult, DemoScenario, EvidenceRecord } from "./domain.js";
+import type { AgentPlan, DecisionOutcome, DecisionResult, DemoScenario, EvidenceRecord } from "./domain.js";
+import { Annotation, StateGraph, START, END } from "@langchain/langgraph";
 import { collectEvidence, getRuntimeMode } from "./nokia.js";
 import { createAgentPlan } from "./planner.js";
 import { isHighValue, validEvidence } from "./controls.js";
@@ -10,6 +11,13 @@ export interface PolicyDecision {
   headline: string;
   explanation: string;
   policyRulesApplied: string[];
+}
+
+export function guardPlannerFailure(policy: PolicyDecision, fallbackReason?: string): PolicyDecision {
+  if (!fallbackReason || policy.outcome !== "APPROVE") return policy;
+  return { ...policy, outcome: "VERIFY", headline: "Context interpretation unavailable",
+    explanation: "The model could not interpret the wallet note. Baseline network checks ran, but the wallet should verify the customer rather than assume no additional checks were needed.",
+    policyRulesApplied: [...policy.policyRulesApplied, "Failed context interpretation cannot silently downgrade a required verification."] };
 }
 
 export function getDecisionBudgetMs(): number {
@@ -110,7 +118,6 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
 
 export async function evaluateScenario(
   scenario: DemoScenario,
-  options: { oidcToken?: string } = {},
 ): Promise<DecisionResult> {
   const started = performance.now();
   const budgetMs = getDecisionBudgetMs();
@@ -118,11 +125,19 @@ export async function evaluateScenario(
   const budgetTimer = setTimeout(() => controller.abort(new Error("Decision budget expired")), budgetMs);
 
   try {
-  const plan = await createAgentPlan(scenario, controller.signal, options.oidcToken);
-  const evidence = await Promise.all(
-    plan.items.map((item) => collectEvidence(scenario, item, controller.signal)),
-  );
-  const policy = applyPolicy(scenario, evidence);
+  const State = Annotation.Root({
+    plan: Annotation<AgentPlan>(), evidence: Annotation<EvidenceRecord[]>(), policy: Annotation<PolicyDecision>(),
+  });
+  const graph = new StateGraph(State)
+    .addNode("plan_checks", async () => ({ plan: await createAgentPlan(scenario, controller.signal) }))
+    .addNode("collect_network_evidence", async state => ({ evidence: await Promise.all(state.plan.items.map(item => collectEvidence(scenario, item, controller.signal))) }))
+    .addNode("institution_policy", state => ({ policy: guardPlannerFailure(applyPolicy(scenario, state.evidence), state.plan.fallbackReason) }))
+    .addEdge(START, "plan_checks")
+    .addEdge("plan_checks", "collect_network_evidence")
+    .addEdge("collect_network_evidence", "institution_policy")
+    .addEdge("institution_policy", END)
+    .compile();
+  const { plan, evidence, policy } = await graph.invoke({}, { recursionLimit: 8 });
   const totalLatencyMs = Math.round(performance.now() - started);
 
   return {

@@ -2,13 +2,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAgentPlan } from "../server/planner.js";
 import { getScenario } from "../server/scenarios.js";
 
+const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
+vi.mock("@google/genai", () => ({ ThinkingLevel: { MINIMAL: "MINIMAL" }, GoogleGenAI: class { models = { generateContent }; } }));
+
 describe("TrustRail context planning", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    generateContent.mockReset();
   });
 
   it("changes optional checks when only the unstructured travel context changes", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
     const base = getScenario("account-takeover")!;
     const verifiedContext = {
       ...base,
@@ -33,28 +38,15 @@ describe("TrustRail context planning", () => {
   });
 
   it("keeps an LLM plan bounded while trimming verbose display content", async () => {
-    vi.stubEnv("AI_API_KEY", "test-key");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            choices: [{
-              message: {
-                content: JSON.stringify({
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    generateContent.mockResolvedValue({ text: JSON.stringify({
                   summary: "S".repeat(300),
                   contextSignals: ["one", "two", "three", "four", "five"],
                   items: [
                     { tool: "location", reason: "L".repeat(240) },
                     { tool: "unknown_tool", reason: "This tool must be discarded." },
                   ],
-                }),
-              },
-            }],
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        )),
-    );
+    }) });
 
     const plan = await createAgentPlan(getScenario("account-takeover")!, new AbortController().signal);
 

@@ -1,4 +1,6 @@
 allowBuilds:
+  '@google/genai': false
   esbuild: true
+  protobufjs: false
 minimumReleaseAgeExclude:
   - '@types/node@26.4.1'
