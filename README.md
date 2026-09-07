@@ -1,11 +1,11 @@
 # TrustRail MENA
 
-TrustRail MENA is a network-native fraud-decision prototype for the GSMA MENA Ignite Hackathon. A bounded agent selects the minimum justified CAMARA checks through Nokia Network as Code, then a deterministic institution policy recommends `APPROVE`, `VERIFY`, or `HOLD`.
+TrustRail MENA is a network-native fraud-decision prototype for the GSMA MENA Ignite Hackathon. A bounded agent proposes CAMARA checks through Nokia Network as Code, institution rules enforce required checks, and deterministic policy recommends `APPROVE`, `VERIFY`, or `HOLD`.
 
 - **Live demo:** https://trustrail-mena.vercel.app
 - **Source repository:** https://github.com/m7mdd77/trustrail-mena
 
-The interface always displays its actual runtime mode. `Nokia simulator connected` means the server is calling Nokia Network as Code; `Fixture preview mode` means no hosted Nokia credential is configured.
+The badge says `Nokia simulator configured` when a credential exists, not when provider health is proven. Inspect each decision's evidence and planner mode for actual execution. All customers and consent references are synthetic; no real carrier pilot is claimed.
 
 ## What the prototype demonstrates
 
@@ -13,9 +13,9 @@ The interface always displays its actual runtime mode. `Nokia simulator connecte
 - A live GPT-5.4 Mini Fast planner through Vercel AI Gateway OIDC, with a bounded deterministic fallback whenever the gateway is unavailable or rate-limited.
 - Editable unstructured wallet context that can change optional API selection while payment fields stay identical.
 - Deterministic safety rules that the AI cannot override.
-- Parallel network checks, one transient retry, and a visible 7-second end-to-end decision budget.
+- Parallel checks, one transient retry, independently enforced cancellation deadlines and a default 7-second server evaluation budget. Browser request latency is separate.
 - Visible, sanitized evidence payloads, extracted context signals, total latency, and failure handling.
-- No payment authority and no precise location retention.
+- No payment authority. Allowlisted evidence excludes internal subscriber IDs and fixed expected-area centers from public decisions.
 
 ## Live-demo judging evidence
 
@@ -86,7 +86,7 @@ Set `PORT` or `HOST` only when the hosting provider requires an override.
 
 The customer remains inside the bank or wallet app. When the customer confirms a payment, the wallet backend calls `POST /api/decisions` with the transaction context and receives a recommendation plus an evidence trail. TrustRail does not initiate the payment or communicate directly with the end user.
 
-The wallet payload includes a registration-time consent reference. The hackathon service assumes the enrolled phone is on a participating network where the requested CAMARA capabilities are available. If a capability is unavailable or the end-to-end budget expires, TrustRail returns `VERIFY` so the wallet can use its existing verification flow.
+The demo fixes synthetic scenario metadata and accepts only a bounded editable note. Its consent reference is not proof of real consent. Unavailable or inconclusive evidence requires `VERIFY` unless stronger valid evidence warrants `HOLD`. Production requires subject-bound revocable consent, authenticated tenant access, shared quotas, durable audit records and confirmed carrier capabilities. The confirmation is interactive but simulated; no payment or identity verification executes.
 
 On Vercel, the LLM planner authenticates to AI Gateway using the platform's automatically provisioned, short-lived `VERCEL_OIDC_TOKEN`; no static AI key is stored. Local development can optionally provide the OpenAI-compatible variables in `.env.example`, otherwise the interface truthfully labels the deterministic safety fallback.
 

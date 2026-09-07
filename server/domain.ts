@@ -60,7 +60,7 @@ export interface EvidenceRecord {
 export interface DecisionResult {
   id: string;
   createdAt: string;
-  scenario: DemoScenario;
+  scenario: Omit<DemoScenario, "phoneNumber" | "expectedLocation" | "toolDeviceOverrides">;
   plan: AgentPlan;
   evidence: EvidenceRecord[];
   outcome: DecisionOutcome;

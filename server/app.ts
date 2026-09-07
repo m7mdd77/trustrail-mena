@@ -37,9 +37,11 @@ export function createApiApp() {
   });
 
   app.get("/api/status", (request, response) => {
-    const oidcToken = request.header("x-vercel-oidc-token");
+    // This header is platform-provided in Vercel Functions; never trust it on a standalone server.
+    const oidcToken = process.env.VERCEL === "1" ? request.header("x-vercel-oidc-token") : undefined;
     response.json({
       ok: true,
+      healthMeaning: "Configuration only; inspect evidence from each evaluation for actual availability.",
       runtimeMode: getRuntimeMode(),
       plannerMode: getPlannerMode(oidcToken),
       enabledApis: ["SIM Swap", "Device Swap", "Location Verification", "Roaming Status"],
@@ -87,7 +89,7 @@ export function createApiApp() {
 
     const parsed = decisionRequest.safeParse(request.body);
     if (!parsed.success) {
-      response.status(400).json({ error: "Choose one of the documented demo scenarios." });
+      response.status(400).json({ error: "Use a documented synthetic scenario and a context note of 10–300 characters." });
       return;
     }
 
@@ -96,10 +98,16 @@ export function createApiApp() {
       response.status(404).json({ error: "Scenario not found." });
       return;
     }
-    const scenario = { ...baseScenario, transaction: parsed.data.transaction };
+    const { contextNote, ...submittedFixed } = parsed.data.transaction;
+    const { contextNote: _originalNote, ...fixed } = baseScenario.transaction;
+    if (Object.entries(fixed).some(([key, value]) => submittedFixed[key as keyof typeof submittedFixed] !== value)) {
+      response.status(400).json({ error: "Only the synthetic context note is editable. Scenario identity, area and demo consent are fixed." });
+      return;
+    }
+    const scenario = { ...baseScenario, transaction: { ...baseScenario.transaction, contextNote } };
 
     try {
-      response.json(await evaluateScenario(scenario, { oidcToken: request.header("x-vercel-oidc-token") }));
+      response.json(await evaluateScenario(scenario, { oidcToken: process.env.VERCEL === "1" ? request.header("x-vercel-oidc-token") : undefined }));
     } catch {
       response.status(502).json({
         error: "TrustRail could not complete this decision safely.",

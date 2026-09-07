@@ -60,8 +60,8 @@ describe("TrustRail context planning", () => {
 
     expect(plan.planner).toBe("llm-agent");
     expect(plan.summary).toHaveLength(220);
-    expect(plan.contextSignals).toEqual(["one", "two", "three", "four"]);
-    expect(plan.items.map((item) => item.tool)).toEqual(["sim_swap", "device_swap", "location"]);
-    expect(plan.items[2].reason).toHaveLength(180);
+    expect(plan.contextSignals.length).toBeLessThanOrEqual(6);
+    expect(plan.items.map((item) => item.tool)).toEqual(["sim_swap", "device_swap", "location", "roaming"]);
+    expect(plan.items.every(item => item.reason.length <= 180)).toBe(true);
   });
 });

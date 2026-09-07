@@ -25,11 +25,12 @@ function App() {
   const [contextDraft, setContextDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientLatencyMs, setClientLatencyMs] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/status").then((response) => response.json()),
-      fetch("/api/scenarios").then((response) => response.json()),
+      fetch("/api/status").then((response) => { if (!response.ok) throw new Error(); return response.json(); }),
+      fetch("/api/scenarios").then((response) => { if (!response.ok) throw new Error(); return response.json(); }),
     ])
       .then(([nextStatus, nextScenarios]) => {
         setStatus(nextStatus);
@@ -48,6 +49,12 @@ function App() {
   }, [selectedScenario?.id]);
 
   async function runDecision() {
+    if (loading || !selectedScenario) return;
+    if (contextDraft.trim().length < 10 || contextDraft.length > 300) {
+      setError("Please enter a synthetic wallet note of 10–300 characters.");
+      return;
+    }
+    const started = performance.now();
     setLoading(true);
     setError("");
     setDecision(null);
@@ -65,6 +72,7 @@ function App() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail ?? payload.error ?? "Decision failed");
       setDecision(payload);
+      setClientLatencyMs(Math.round(performance.now() - started));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Decision failed safely.");
     } finally {
@@ -84,7 +92,7 @@ function App() {
         </a>
         <div className="nav-meta">
           <span className={`live-pill ${status?.runtimeMode === "nokia-live" ? "is-live" : ""}`}>
-            <i /> {status?.runtimeMode === "nokia-live" ? "Nokia simulator connected" : "Fixture preview mode"}
+            <i /> {!status ? "Checking configuration…" : status.runtimeMode === "nokia-live" ? "Nokia simulator configured" : "Fixture preview mode"}
           </span>
           <span className="nav-copy">Bank stays in control</span>
         </div>
@@ -96,7 +104,7 @@ function App() {
           <h1>Let the network speak<br />before the money moves.</h1>
           <p className="hero-copy">
             A wallet backend sends TrustRail the payment context. Its bounded AI agent asks Nokia Network as Code for
-            the minimum useful telecom evidence, then returns approve, verify, or hold—with every reason visible.
+            justified telecom evidence, then returns approve, verify, or hold—with every reason visible. Synthetic customers only; live calls use Nokia’s simulator, not a verified carrier pilot.
           </p>
           <div className="trust-row">
             <span>CAMARA APIs</span>
@@ -133,6 +141,7 @@ function App() {
             <button
               type="button"
               key={scenario.id}
+              disabled={loading}
               className={`scenario-card ${selected === scenario.id ? "selected" : ""}`}
               onClick={() => {
                 setSelected(scenario.id);
@@ -155,11 +164,11 @@ function App() {
             <div className="wallet-story">
               <p className="card-label">Wallet confirmation mockup</p>
               <h3>{selectedScenario.transaction.customerAction}</h3>
-              <div className="wallet-confirmation">
-                <span>Customer taps</span>
-                <strong>Confirm payment →</strong>
-              </div>
-              <p>Registration consent on file · the customer stays inside the wallet.</p>
+              <button className="wallet-confirmation" type="button" disabled={loading} onClick={runDecision}>
+                <span>Simulated wallet</span>
+                <strong>{loading ? "Checking…" : "Confirm payment →"}</strong>
+              </button>
+              <p>Fixed synthetic consent reference · no real registration, payment or identity verification is performed.</p>
             </div>
             <ol className="integration-flow">
               <li><b>1</b><span><strong>Wallet app</strong><small>Customer confirms payment</small></span></li>
@@ -174,12 +183,13 @@ function App() {
             <div>
               <p className="card-label">Unstructured wallet context</p>
               <h3 id="context-title">Change the note; keep the payment fields identical.</h3>
-              <p>The live AI planner extracts context and chooses the smallest justified optional checks.</p>
+              <p>The AI interprets synthetic notes. Institution rules enforce minimum checks; the agent may add allowed checks, never remove required ones.</p>
             </div>
             <div>
               <label htmlFor="context-note">Wallet case note</label>
               <textarea
                 id="context-note"
+                disabled={loading}
                 value={contextDraft}
                 maxLength={300}
                 onChange={(event) => {
@@ -189,8 +199,8 @@ function App() {
               />
               {selected === "account-takeover" && (
                 <div className="context-presets">
-                  <button type="button" onClick={() => { setContextDraft("The customer reports travelling abroad; the transfer note says ‘family emergency’; a new device session appeared six hours ago."); setDecision(null); }}>Travel-risk note</button>
-                  <button type="button" onClick={() => { setContextDraft("Beneficiary verified in branch yesterday; scheduled tuition payment; customer is at home in Dubai."); setDecision(null); }}>Verified-context note</button>
+                  <button type="button" disabled={loading} onClick={() => { setContextDraft("The customer reports travelling abroad; the transfer note says ‘family emergency’; a new device session appeared six hours ago."); setDecision(null); }}>Travel-risk note</button>
+                  <button type="button" disabled={loading} onClick={() => { setContextDraft("Beneficiary verified in branch yesterday; scheduled tuition payment; customer is at home in Dubai."); setDecision(null); }}>Verified-context note</button>
                 </div>
               )}
             </div>
@@ -245,9 +255,9 @@ function App() {
                 {decision.plan.fallbackReason && <small className="fallback-reason">{decision.plan.fallbackReason}</small>}
               </div>
               <div>
-                <span>Decision latency</span>
+                <span>Server evaluation</span>
                 <strong>{decision.totalLatencyMs.toLocaleString()} ms</strong>
-                <small>{decision.budgetMs.toLocaleString()} ms hard budget</small>
+                <small>{decision.budgetMs.toLocaleString()} ms server budget · {clientLatencyMs?.toLocaleString()} ms browser request</small>
               </div>
             </div>
 
@@ -284,7 +294,7 @@ function App() {
               </div>
               <div className="risk-score">
                 <span>{decision.riskScore}</span>
-                <small>risk score<br />out of 100</small>
+                <small>illustrative policy score<br />not fraud probability</small>
               </div>
               <div className="policy-box">
                 <strong>{outcomeLabels[decision.outcome]}</strong>
@@ -320,7 +330,7 @@ function App() {
         <div className="principle-grid">
           <article><b>01</b><h3>Minimum checks</h3><p>SIM and device changes are core; location and roaming are requested only when context justifies them.</p></article>
           <article><b>02</b><h3>Fail safely</h3><p>A timeout never becomes a safe answer. Mixed evidence triggers verification.</p></article>
-          <article><b>03</b><h3>Privacy bounded</h3><p>Location is verified as an area match; precise coordinates are not retained.</p></article>
+          <article><b>03</b><h3>Privacy bounded</h3><p>Only allowlisted area-match evidence is returned. Fixed synthetic area centers stay on the server. Production consent and residency controls remain integration requirements.</p></article>
           <article><b>04</b><h3>Institution authority</h3><p>TrustRail recommends. The bank or wallet owns the final payment action.</p></article>
         </div>
       </section>

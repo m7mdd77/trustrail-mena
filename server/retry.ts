@@ -2,6 +2,26 @@ export interface RetryableProviderError extends Error {
   statusCode?: number;
 }
 
+// Reject independently of SDK cooperation, while consuming late promise settlements.
+export function withinDeadline<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new DOMException("Deadline expired", "TimeoutError"));
+    if (signal.aborted) return abort();
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve().then(() => {
+      signal.throwIfAborted();
+      return operation();
+    }).then(value => {
+      signal.removeEventListener("abort", abort);
+      if (signal.aborted) abort();
+      else resolve(value);
+    }, error => {
+      signal.removeEventListener("abort", abort);
+      reject(error);
+    });
+  });
+}
+
 export function providerStatus(error: unknown): number | undefined {
   if (typeof error === "object" && error !== null && "statusCode" in error) {
     const status = Number((error as { statusCode?: unknown }).statusCode);
@@ -32,11 +52,14 @@ export async function executeWithOneTransientRetry<T>(
     const attemptSignal = AbortSignal.any([overallSignal, AbortSignal.timeout(attemptTimeoutMs)]);
 
     try {
-      return await operation(attemptSignal, attempt);
+      return await withinDeadline(() => operation(attemptSignal, attempt), attemptSignal);
     } catch (error) {
       lastError = error;
       if (overallSignal.aborted) throw overallSignal.reason ?? error;
       if (attempt === 2 || !isTransientProviderError(error)) throw error;
+      if (providerStatus(error) === 429) {
+        await withinDeadline(() => new Promise(resolve => setTimeout(resolve, 150)), overallSignal);
+      }
     }
   }
 

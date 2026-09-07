@@ -8,6 +8,7 @@ import type {
   ToolPlanItem,
 } from "./domain.js";
 import { executeWithOneTransientRetry, providerStatus } from "./retry.js";
+import { parseEvidence } from "./controls.js";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
@@ -142,11 +143,12 @@ export async function collectEvidence(
   const phoneNumber = scenario.toolDeviceOverrides?.[planItem.tool] ?? scenario.phoneNumber;
 
   try {
-    const raw = await executeWithOneTransientRetry(
+    const response = await executeWithOneTransientRetry(
       (attemptSignal) => liveCall(planItem.tool, phoneNumber, scenario, attemptSignal),
       abortSignal,
       2_000,
     );
+    const raw = parseEvidence(planItem.tool, response);
     const description = describe(planItem.tool, raw);
     return {
       tool: planItem.tool,

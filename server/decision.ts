@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DecisionOutcome, DecisionResult, DemoScenario, EvidenceRecord } from "./domain.js";
 import { collectEvidence, getRuntimeMode } from "./nokia.js";
 import { createAgentPlan } from "./planner.js";
+import { isHighValue, validEvidence } from "./controls.js";
 
 export interface PolicyDecision {
   outcome: DecisionOutcome;
@@ -21,6 +22,8 @@ function evidenceByTool(evidence: EvidenceRecord[], tool: EvidenceRecord["tool"]
 }
 
 export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]): PolicyDecision {
+  evidence = evidence.map(item => item.status === "received" && !validEvidence(item.tool, item.raw)
+    ? { ...item, status: "unavailable", raw: { unavailable: true } } : item);
   const simSwap = evidenceByTool(evidence, "sim_swap");
   const deviceSwap = evidenceByTool(evidence, "device_swap");
   const location = evidenceByTool(evidence, "location");
@@ -31,7 +34,7 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
     ["device_swap", deviceSwap],
   ].filter(([, record]) => !record);
   const rules: string[] = [];
-  let score = scenario.transaction.amount >= 1_000 ? 12 : 0;
+  let score = isHighValue(scenario.transaction) ? 12 : 0;
 
   if (missingCoreEvidence.length > 0) {
     score += 18;
@@ -40,7 +43,7 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
 
   if ((simSwap?.raw as any)?.swapped === true) {
     score += 75;
-    rules.push("Recent SIM swap is a hard account-takeover signal.");
+    rules.push("Conservative demo policy holds recent SIM changes for review; a legitimate replacement is also possible.");
   }
   if ((deviceSwap?.raw as any)?.swapped === true) {
     score += 55;
@@ -72,7 +75,7 @@ export function applyPolicy(scenario: DemoScenario, evidence: EvidenceRecord[]):
   let outcome: DecisionOutcome;
   if (hasRecentSwap || (hasLocationMismatch && hasSecondSeriousSignal) || score >= 70) {
     outcome = "HOLD";
-  } else if (unavailable.length > 0 || missingCoreEvidence.length > 0 || score >= 30) {
+  } else if (unavailable.length > 0 || missingCoreEvidence.length > 0 || (location?.raw as any)?.verificationResult === "UNKNOWN" || score >= 30) {
     outcome = "VERIFY";
   } else {
     outcome = "APPROVE";
@@ -114,18 +117,18 @@ export async function evaluateScenario(
   const controller = new AbortController();
   const budgetTimer = setTimeout(() => controller.abort(new Error("Decision budget expired")), budgetMs);
 
+  try {
   const plan = await createAgentPlan(scenario, controller.signal, options.oidcToken);
   const evidence = await Promise.all(
     plan.items.map((item) => collectEvidence(scenario, item, controller.signal)),
   );
   const policy = applyPolicy(scenario, evidence);
-  clearTimeout(budgetTimer);
   const totalLatencyMs = Math.round(performance.now() - started);
 
   return {
     id: randomUUID(),
     createdAt: new Date().toISOString(),
-    scenario,
+    scenario: { id: scenario.id, title: scenario.title, shortDescription: scenario.shortDescription, transaction: scenario.transaction },
     plan,
     evidence,
     ...policy,
@@ -134,4 +137,7 @@ export async function evaluateScenario(
     budgetMs,
     budgetExceeded: controller.signal.aborted,
   };
+  } finally {
+    clearTimeout(budgetTimer);
+  }
 }
