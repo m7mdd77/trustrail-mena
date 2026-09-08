@@ -3,6 +3,7 @@
 TrustRail MENA is a network-native fraud-decision prototype for the GSMA MENA Ignite Hackathon. A bounded agent proposes CAMARA checks through Nokia Network as Code, institution rules enforce required checks, and deterministic policy recommends `APPROVE`, `VERIFY`, or `HOLD`.
 
 - **Live demo:** https://trustrail-mena.vercel.app
+- **Prototype video:** https://trustrail-mena.vercel.app/demo/
 - **Source repository:** https://github.com/m7mdd77/trustrail-mena
 
 The badge says `Nokia simulator configured` when a credential exists, not when provider health is proven. Inspect each decision's evidence and planner mode for actual execution. All customers and consent references are synthetic; no real carrier pilot is claimed.
@@ -33,7 +34,7 @@ The badge says `Nokia simulator configured` when a credential exists, not when p
 ```text
 Payment context
       ↓
-Bounded LLM agent plan (2.5 s planner limit)
+Bounded LLM agent plan (4.5 s planner limit)
       ↓
 Parallel CAMARA checks through Nokia Network as Code
       ↓
